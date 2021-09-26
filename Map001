@@ -1,0 +1,105 @@
+// initialize
+import wixSite from 'wix-site';
+import wixUsers from 'wix-users';
+import wixData from "wix-data";
+import wixLocation from 'wix-location';
+const user = wixUsers.currentUser;
+const UserID = user.id;
+
+// establish page and survey variables
+let SurveyNum = "unknown";
+let SurveyResponses = "unknown";
+
+// establish UserEmail variables
+let UserEmail = "unknown";
+
+user.getEmail()
+  	.then( (email) => {
+    	UserEmail = email;
+  	} );
+
+
+// onReady
+$w.onReady(function () {
+
+	// set page and surveynum variables
+	let CurrentPage = wixSite.currentPage;
+	SurveyNum = (CurrentPage.name);
+	SurveyResponses = SurveyNum + "Responses";
+
+	// if user aleady has done this survey, boot them, otherwise continue
+	wixData.query(SurveyResponses)
+  		.eq("userID", UserID)
+  		.find()
+ 		.then((results) => {   
+			if(results.items.length > 0) {
+				wixLocation.to("/surveyalreadytaken");
+			}
+	 		else {
+				  // reveal survey content
+				  $w("#WaitAnim").hide("fade");
+				  $w("#QuadA").show("fade");
+				  $w("#QuadB").show("fade");
+				  $w("#QuadC").show("fade");
+				  $w("#QuadD").show("fade");
+				  $w("#Question01").show("fade");
+				  $w("#Question02").show("fade");
+				  $w("#Question03").show("fade");  
+	  		}
+   		});
+});
+
+
+export function UpdateSurveyResponses(Response) {
+	
+	// find current time
+	const CurrentDate = new Date();
+	const CurrentTime = CurrentDate.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit" , second : "2-digit", hour12: true});
+
+	// add response to survey database
+	let toInsertSurveyResponses = {
+  		"date":    		CurrentDate,
+  		"time":    		CurrentTime,
+  		"surveyNum":	SurveyNum,
+		"userID":		UserID,
+		"userEmail":	UserEmail,
+		"response":		Response
+	};
+
+	wixData.insert(SurveyResponses, toInsertSurveyResponses);
+}
+
+
+// Quadrant A is clicked
+export function QuadA_click(event) {
+	
+	// add response to data set
+	UpdateSurveyResponses("A");
+
+}
+
+
+// Quadrant B is clicked
+export function QuadB_click(event) {
+
+	// add response to data set
+	UpdateSurveyResponses("B");
+
+}
+
+
+export function QuadC_click(event) {
+
+	// add response to data set
+	UpdateSurveyResponses("C");
+
+}
+
+
+// Quadrant D is clicked
+export function QuadD_click(event) {
+	
+	// add response to data set
+	UpdateSurveyResponses("D");
+
+}
