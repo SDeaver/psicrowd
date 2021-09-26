@@ -1,0 +1,80 @@
+// initialize
+import wixUsers from 'wix-users';
+import wixData from "wix-data";
+const user = wixUsers.currentUser;
+const UserID = user.id;
+
+
+$w.onReady(function () {
+    LoadData();
+});
+
+
+export function LoadData() {
+    wixData.query("AllResponses")
+    .eq("userID", UserID)
+    .find()
+    .then((results) => {   
+        if(results.items.length > 0) {
+            let AllResponses = results.items[0].responses;
+
+            // reverse order of array so most recent response is displayed first
+            AllResponses.reverse();
+          
+            if(AllResponses.length > 0) {
+                // set table cells to match info in user record
+                for(var i = 0; i < AllResponses.length; i++){
+                    let isurveyNum = AllResponses[i].surveyNum;
+                    // note: if array of objects has been modified at all in content manager, then date will be a string and not a date,
+                    // and toLocaleDateString returns an error, so we need to check for this first and convert if neccessary
+                    let idate = AllResponses[i].date
+                    try {
+                        idate = idate.toLocaleDateString()
+                    }
+                    catch (error) {
+                        // need to do a couple conversions to get date into right format
+                        idate = Date.parse(idate);
+                        let NewDate = new Date();
+                        NewDate.setTime(idate);
+                        idate = NewDate.toLocaleDateString();
+                    }
+                    let iresponse = AllResponses[i].response;
+                    let iscore = AllResponses[i].psiScore;
+			        let icorrect = "";
+			        if (AllResponses[i].correct){
+				        icorrect = "✓";
+			        }
+              
+                    let rowData = {surveyNum: isurveyNum, date: idate, response: iresponse, correct: icorrect, score: iscore};
+                    $w("#MainTable").updateRow(i, rowData);
+                }
+
+                // show table
+                RevealResponses();
+            }
+            else {
+                // show no stats available
+                $w("#WaitAnim").hide("fade");
+                $w("#StatsCurrentlyUnavailable").show("fade");
+            }
+        }
+        else {
+            // show no stats available
+            $w("#WaitAnim").hide("fade");
+            $w("#StatsCurrentlyUnavailable").show("fade");
+        }
+    })
+    .catch(error => {
+        // show no stats available
+        console.log(error);
+        $w("#WaitAnim").hide("fade");
+        $w("#StatsCurrentlyUnavailable").show("fade");
+    });
+
+}
+
+// show table
+export function RevealResponses() {
+      $w("#WaitAnim").hide("fade");
+      $w("#MainTable").show("fade");
+}
