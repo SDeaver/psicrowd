@@ -1,0 +1,114 @@
+// initialize
+import wixData from "wix-data";
+let NumAnswers = 2;
+let Answers = [];
+let CorrectAnswer = "unknown";
+let TotalResponses = 0;
+let ColumnTotal = [];
+
+
+$w.onReady(function () {
+
+});
+
+
+export function Reset(){
+
+	for (var i = 0; i < NumAnswers; i++) {
+		Answers[i] = "unknown";
+		ColumnTotal[i] = 0;
+		var CorrectLabel = "#Correct" + i.toString();
+		$w(CorrectLabel).hide();
+		var Box = "#Total" + i.toString();
+		$w(Box).text = "0";
+		var Bar = "#Bar" + i.toString();
+		$w(Bar).postMessage("clear");
+	}
+	CorrectAnswer = "unknown";
+	TotalResponses = 0;
+	$w("#TotalResponses").hide();
+
+}
+
+
+export function ExecuteButton_click(event) {
+
+	// reset variables to initial values
+	Reset();
+	
+	// set answers array
+	for (var i = 0; i < NumAnswers; i++) {
+		var AnswerBox = "#Answer" + i;
+		var temp = $w(AnswerBox).value;
+		Answers[i] = $w(AnswerBox).value;
+	}
+
+	let SurveyResponses = ($w("#SurveyName").value + "Responses");
+	AnalyzeSurvey(SurveyResponses);	
+}
+
+
+async function AnalyzeSurvey(SurveyResponses) {
+	
+	let results = await wixData.query(SurveyResponses)
+  		.limit(1000)
+		.find();
+	
+	TotalResponses = results.items.length;
+	
+	for(var i = 0; i < results.items.length; i++){
+		 
+		let CurrentEntry = results.items[i];
+		let CurrentResponse = CurrentEntry.response;
+		let IsCorrect = CurrentEntry.correct;
+		let IgnoreEntry = false;
+
+		// if we find the correct answer, reveal the appropriate label				
+		if((IsCorrect) && (CorrectAnswer == "unknown")){
+			CorrectAnswer = CurrentResponse;
+			for (var x = 0; x < NumAnswers; x++) {
+				if (Answers[x] == CorrectAnswer) {
+					var CorrectLabel = "#Correct" + x.toString();
+					$w(CorrectLabel).show("fade");
+				}
+			}
+		}
+
+		// if psi supporters only and/or high scorers only is checked, ignore this entry if it is not a psi supporter
+		if ($w("#PsiSupportersOnly").checked || $w("#HighScorersOnly").checked) {
+	
+			let results02 = await wixData.query("PsiSupporters")
+				.eq("userEmail", CurrentEntry.userEmail)
+				.find();
+
+			// if not on list of psi supporters, ignore this entry
+			if (results02.items.length <= 0){
+				TotalResponses--;
+				IgnoreEntry = true;
+			}
+			// if high scorers only is checked, ignore this entry if psi score beta is <= than 1
+			else if ($w("#HighScorersOnly").checked && (results02.items[0].psiScoreBeta <= 1)) {
+				TotalResponses--;
+				IgnoreEntry = true;
+			}
+		}
+		
+		// increment correct total and draw column
+		if (!IgnoreEntry) {
+			for (var x = 0; x < NumAnswers; x++) {
+				if (Answers[x] == CurrentResponse) {
+					ColumnTotal[x]++;
+					var Box = "#Total" + x.toString();
+					$w(Box).text = ColumnTotal[x].toString();
+					var ColumnHeight = (ColumnTotal[x] / results.items.length) * 500;
+					var Bar = "#Bar" + x.toString();
+					$w(Bar).postMessage(ColumnHeight);
+				}
+			}
+		}
+	}
+
+	// when loop is complete, reveal final total of answers
+	$w("#TotalResponses").text = "Total Responses " + TotalResponses;
+	$w("#TotalResponses").show("fade");	
+}
