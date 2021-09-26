@@ -1,0 +1,56 @@
+// initialize
+import wixUsers from 'wix-users';
+import wixData from "wix-data";
+const user = wixUsers.currentUser;
+const UserID = user.id;
+	
+
+$w.onReady(function () {
+	LoadStats();
+});
+
+
+// load stats
+export function LoadStats() {
+	wixData.query("PsiSupporters")
+	.eq("userID", UserID)
+	.find()
+    .then((results) => {   
+	  	if(results.items.length > 0) {
+		 
+			let SurveysTaken = results.items[0].surveysTaken;
+			let PsiScoreAlpha = results.items[0].psiScoreAlpha;
+			let PsiScoreBeta = results.items[0].psiScoreBeta;
+
+			$w("#SurveysTaken").text = SurveysTaken.toLocaleString();
+			$w("#PsiScoreAlpha").text = PsiScoreAlpha.toLocaleString();
+			$w("#PsiScoreBeta").text = PsiScoreBeta.toLocaleString();
+
+			RevealStats();
+	  }
+	  else {
+		  // show no stats available
+		  $w("#WaitAnim").hide("fade");
+		  $w("#StatsCurrentlyUnavailable").show("fade");
+	  }
+	})
+	.catch(error => {
+     	// show no stats available
+		$w("#WaitAnim").hide("fade");
+	  	$w("#StatsCurrentlyUnavailable").show("fade");
+    });
+
+}
+
+
+// reveal stats
+export function RevealStats() {
+	$w("#WaitAnim").hide("fade");
+	$w("#SurveysTakenTitle").show("fade");
+	$w("#PsiScoreAlphaTitle").show("fade");
+	$w("#PsiScoreBetaTitle").show("fade");
+	$w("#SurveysTaken").show("fade");
+	$w("#PsiScoreAlpha").show("fade");
+	$w("#PsiScoreBeta").show("fade");
+	$w("#SeeAll").show("fade");
+}
