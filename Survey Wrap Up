@@ -1,0 +1,147 @@
+// initialize
+import wixData from "wix-data";
+
+
+$w.onReady(function () {
+
+});
+
+
+export function MarkCorrectButton_click(event) {
+
+	let SurveyResponses = ($w("#SurveyName").value + "Responses");
+
+	//update survey responses dataset to mark correct answers
+	MarkCorrect(SurveyResponses, $w("#CorrectAnswer").value);
+
+}
+
+export function UpdateResponsesButton_click(event) {
+	
+	let SurveyResponses = ($w("#SurveyName").value + "Responses");
+
+	//update survey responses dataset to mark correct answers
+	UpdateAllResponses(SurveyResponses);
+}
+
+
+// update survey responses dataset to mark correct answers
+async function MarkCorrect(SurveyResponses, CorrectAnswer) {
+
+	let results = await wixData.query(SurveyResponses)
+		.limit(1000)
+  		.find();  
+
+	for(var i = 0; i < results.items.length; i++){
+
+		let NewResponse = results.items[i];
+
+		if (NewResponse.response == CorrectAnswer){
+			NewResponse.correct = true;
+		}
+		else {
+			NewResponse.correct = false;
+		}
+
+		// make update to record in the survey responses dataset
+		//const newresult = 
+		await wixData.update(SurveyResponses, NewResponse);
+		
+		// update display counter
+		$w("#MarkCorrectCount").text = (i + 1) + " of " + results.items.length;
+	}	
+
+	// reveal check when finished
+	$w("#MarkCorrectCheck").show("fade");
+}
+
+
+// transfer response data from survey responses dataset to all responses dataset
+async function UpdateAllResponses(SurveyResponses){
+	
+	let results = await wixData.query(SurveyResponses)
+	.limit(1000)
+	.find();
+		
+	for(var i = 0; i < results.items.length; i++){
+			
+		let SurveyResponse = results.items[i];
+
+		let NewResponse = {
+			date:		SurveyResponse.date,
+			surveyNum:	SurveyResponse.surveyNum,
+			response:	SurveyResponse.response,
+			correct:	SurveyResponse.correct,
+			psiScore:	0
+		} 
+
+		// if response is correct, give it a psi score
+		if (NewResponse.correct) {
+			NewResponse.psiScore = parseInt($w("#Score").value);
+		}
+
+		let results02 = await wixData.query("AllResponses")
+		.eq("userID", SurveyResponse.userID)
+		.find();
+	
+		if (results02.length > 0) {
+			// user exists, so push new response into their responses array
+			let UserRecord = results02.items[0];
+
+			UserRecord.responses.push(NewResponse);
+			await wixData.update("AllResponses", UserRecord);
+			
+			// calculate and update surveys taken and psi scores in psi supporters dataset
+			UpdateUserScore(UserRecord);
+		}
+		else {
+			// user does not exist in all responses dataset, so add new user and new response data
+			let UserRecord = {
+				userID: 	SurveyResponse.userID,
+				userEmail:	SurveyResponse.userEmail,
+				responses:	[]
+			}
+					
+			UserRecord.responses.push(NewResponse);
+			await wixData.insert("AllResponses", UserRecord);
+
+			// calculate and update surveys taken and psi scores in psi supporters dataset
+			UpdateUserScore(UserRecord);
+		}
+
+		// update display counter
+		$w("#UpdateResponsesCount").text = (i + 1) + " of " + results.items.length;			
+	}
+	
+	// reveal check when finished
+	$w("#UpdateResponsesCheck").show("fade");
+}
+
+
+// calculate and update surveys taken and psi scores in psi supporters dataset for single user
+async function UpdateUserScore(UserRecord) {
+	let AllUserResponses = UserRecord.responses;
+	let NewSurveysTaken = AllUserResponses.length;
+	let NewPsiScoreAlpha = 0;
+
+	// calculate psiscore alpha
+	for(var i = 0; i < NewSurveysTaken; i++){
+		NewPsiScoreAlpha = NewPsiScoreAlpha + AllUserResponses[i].psiScore;
+	}
+
+	// calculate psiscore beta
+	let NewPsiScoreBeta = NewPsiScoreAlpha / NewSurveysTaken;	
+
+	// find this user in psi supporters dataset and update record
+	let results = await wixData.query("PsiSupporters")
+		.eq("userID", UserRecord.userID)
+		.find();
+	
+	if(results.items.length > 0) {
+		let NewRecord = results.items[0];
+		NewRecord.surveysTaken = NewSurveysTaken;
+		NewRecord.psiScoreAlpha = NewPsiScoreAlpha;
+		NewRecord.psiScoreBeta = NewPsiScoreBeta;
+		await wixData.update("PsiSupporters", NewRecord);		
+	}		
+}
